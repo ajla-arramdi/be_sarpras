@@ -14,13 +14,12 @@ return new class extends Migration
         Schema::create('pengembalians', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->foreignId('peminjaman_id')->constrained()->onDelete('cascade');
+            $table->foreignId('peminjaman_id')->constrained('peminjamans')->onDelete('cascade');
             $table->integer('jumlah');
             $table->date('tanggal_dikembalikan');
             $table->enum('kondisi_barang', ['baik', 'terlambat', 'rusak', 'hilang']);
             $table->integer('denda')->default(0);
-            $table->enum('catatan', ['pending', 'completed', 'damage'])->default('pending');
-              $table->string('status')->default('aktif');
+            $table->enum('status', ['pending', 'completed', 'damage', 'returned'])->default('pending');
             $table->timestamps();
         });
     }

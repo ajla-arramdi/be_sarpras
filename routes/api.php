@@ -6,7 +6,9 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\BarangApiController;
 use App\Http\Controllers\KategoriApiController;
 use App\Http\Controllers\API\PeminjamanController;
-use App\Http\Controllers\API\PengembalianApiController;
+use App\Http\Controllers\Api\PengembalianApiController;
+use App\Http\Controllers\Api\PengembalianController;
+
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -35,10 +37,9 @@ Route::get('/barangs', [BarangApiController::class, 'index']);
 
 
 
-Route::prefix('pengembalians')->group(function () {
-    Route::get('/', [PengembalianApiController::class, 'index']);
-    Route::get('/{id}', [PengembalianApiController::class, 'show']);
-    Route::post('/', [PengembalianApiController::class, 'store']);
-    Route::post('/{id}/approve', [PengembalianApiController::class, 'approve']);
-    Route::post('/{id}/damage', [PengembalianApiController::class, 'markDamage']);
+Route::post('/pengembalian', [PengembalianApiController::class, 'store']);
+Route::get('/pengembalian/user', [PengembalianApiController::class, 'index']);
+
+Route::get('/coba', function () {
+    return response()->json(['pesan' => 'API jalan']);
 });

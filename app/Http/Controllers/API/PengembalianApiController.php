@@ -1,140 +1,126 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
-use App\Models\Pengembalian;
 use Illuminate\Http\Request;
+use App\Models\Pengembalian;
+use App\Models\Peminjaman;
+use App\Models\Barang;
+use Carbon\Carbon;
 
 class PengembalianApiController extends Controller
 {
-    // Tampilkan semua pengembalian dengan filter optional status
-    public function index(Request $request)
-    {
-        $status = $request->query('status'); // optional: pending, completed, damage
-        $query = Pengembalian::query();
-
-        if ($status && in_array($status, ['pending', 'completed', 'damage'])) {
-            $query->where('catatan', $status);
-        }
-
-        $pengembalians = $query->with(['user', 'peminjaman'])->get();
-
-        return response()->json($pengembalians);
-    }
-
-    // Tampilkan detail pengembalian
-    public function show($id)
-    {
-        $pengembalian = Pengembalian::with(['user', 'peminjaman'])->find($id);
-
-        if (!$pengembalian) {
-            return response()->json(['message' => 'Pengembalian tidak ditemukan'], 404);
-        }
-
-        return response()->json($pengembalian);
-    }
-
-    // Simpan pengembalian baru (create)
+    // Menyimpan data pengembalian
     public function store(Request $request)
     {
         $validated = $request->validate([
             'user_id' => 'required|exists:users,id',
-            'peminjaman_id' => 'required|exists:peminjamen,id',
+            'peminjaman_id' => 'required|exists:peminjamans,id',
             'jumlah' => 'required|integer|min:1',
             'tanggal_dikembalikan' => 'required|date',
             'kondisi_barang' => 'required|in:baik,terlambat,rusak,hilang',
-            'denda' => 'nullable|integer|min:0',
-            'catatan' => 'nullable|in:pending,completed,damage',
         ]);
 
-        // Default catatan pending jika tidak diisi
-        if (!isset($validated['catatan'])) {
-            $validated['catatan'] = 'pending';
+        // Cari data peminjaman terkait beserta barangnya
+        $peminjaman = Peminjaman::with('barang')->findOrFail($validated['peminjaman_id']);
+
+        // Cek status peminjaman
+        if ($peminjaman->status === 'dikembalikan') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Peminjaman ini sudah dikembalikan.'
+            ], 400);
         }
 
-        // Jika kondisi selain baik, set catatan damage dan set denda default jika denda kosong
-        if (in_array($validated['kondisi_barang'], ['terlambat', 'rusak', 'hilang'])) {
-            $validated['catatan'] = 'damage';
-
-            if (!isset($validated['denda']) || $validated['denda'] === null) {
-                switch ($validated['kondisi_barang']) {
-                    case 'terlambat':
-                        $validated['denda'] = 50000;
-                        break;
-                    case 'rusak':
-                        $validated['denda'] = 100000;
-                        break;
-                    case 'hilang':
-                        $validated['denda'] = 200000;
-                        break;
-                }
-            }
-        } else {
-            // Kondisi baik = catatan completed dan denda 0
-            $validated['catatan'] = 'completed';
-            $validated['denda'] = 0;
+        if ($peminjaman->status !== 'disetujui') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Peminjaman belum disetujui admin.'
+            ], 400);
         }
 
-        $pengembalian = Pengembalian::create($validated);
+        // Hitung denda keterlambatan
+        $denda = 0;
+        $tanggalPengembalian = Carbon::parse($validated['tanggal_dikembalikan']);
+        $tanggalSeharusnya = Carbon::parse($peminjaman->tanggal_pengembalian);
+        $selisihHari = $tanggalPengembalian->diffInDays($tanggalSeharusnya, false);
+
+        if ($selisihHari < 0) {
+            $denda += abs($selisihHari) * 5000; // denda Rp5000 per hari keterlambatan
+        }
+
+        // Denda tambahan untuk kondisi rusak atau hilang
+        if (in_array($validated['kondisi_barang'], ['rusak', 'hilang'])) {
+            $denda += 10000;
+        }
+
+        // Simpan data pengembalian
+        $pengembalian = Pengembalian::create([
+            'user_id' => $validated['user_id'],
+            'peminjaman_id' => $validated['peminjaman_id'],
+            'jumlah' => $validated['jumlah'],
+            'tanggal_dikembalikan' => $validated['tanggal_dikembalikan'],
+            'kondisi_barang' => $validated['kondisi_barang'],
+            'denda' => $denda,
+            'status' => 'pending',
+        ]);
+
+        // Update stok barang (increment stok sesuai jumlah pengembalian)
+        if ($peminjaman->barang) {
+            $peminjaman->barang->increment('jumlah', $validated['jumlah']);
+        }
+
+        // Update status peminjaman menjadi returned
+        $peminjaman->update(['status' => 'dikembalikan']);
 
         return response()->json([
-            'message' => 'Pengembalian berhasil disimpan',
+            'success' => true,
+            'message' => 'Pengembalian berhasil dicatat.',
             'data' => $pengembalian,
         ], 201);
     }
 
-    // Approve pengembalian (ubah catatan jadi completed dan denda 0)
-    public function approve($id)
+    // Menampilkan semua data pengembalian
+    public function index()
     {
-        $pengembalian = Pengembalian::find($id);
-
-        if (!$pengembalian) {
-            return response()->json(['message' => 'Pengembalian tidak ditemukan'], 404);
-        }
-
-        $pengembalian->catatan = 'completed';
-        $pengembalian->denda = 0;
-        $pengembalian->save();
+        $pengembalians = Pengembalian::with(['peminjaman.barang', 'user'])->latest()->get();
 
         return response()->json([
-            'message' => 'Pengembalian disetujui',
+            'success' => true,
+            'data' => $pengembalians,
+        ]);
+    }
+
+    // Menampilkan detail pengembalian berdasarkan ID
+    public function show($id)
+    {
+        $pengembalian = Pengembalian::with(['peminjaman.barang', 'user'])->find($id);
+
+        if (!$pengembalian) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Data pengembalian tidak ditemukan.'
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
             'data' => $pengembalian,
         ]);
     }
 
-    // Tandai damage dan hitung denda
-    public function markDamage(Request $request, $id)
+    // Menampilkan peminjaman yang belum dikembalikan (status approved)
+    public function getPeminjamanBelumDikembalikan()
     {
-        $validated = $request->validate([
-            'kondisi_barang' => 'required|in:terlambat,rusak,hilang',
-        ]);
-
-        $pengembalian = Pengembalian::find($id);
-        if (!$pengembalian) {
-            return response()->json(['message' => 'Pengembalian tidak ditemukan'], 404);
-        }
-
-        $pengembalian->catatan = 'damage';
-        $pengembalian->kondisi_barang = $validated['kondisi_barang'];
-
-        switch ($validated['kondisi_barang']) {
-            case 'terlambat':
-                $pengembalian->denda = 50000;
-                break;
-            case 'rusak':
-                $pengembalian->denda = 100000;
-                break;
-            case 'hilang':
-                $pengembalian->denda = 200000;
-                break;
-        }
-
-        $pengembalian->save();
+        $peminjamans = Peminjaman::with('barang')
+            ->where('status', 'disetujui')
+            ->latest()
+            ->get();
 
         return response()->json([
-            'message' => 'Pengembalian diupdate dengan status damage',
-            'data' => $pengembalian,
+            'success' => true,
+            'data' => $peminjamans,
         ]);
     }
 }

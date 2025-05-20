@@ -9,51 +9,83 @@ class PengembalianController extends Controller
 {
     // Tampilkan semua pengembalian yang pending
     public function index()
-    {
-        $pengembalians = Pengembalian::where('catatan', 'pending')->with(['user', 'peminjaman'])->get();
-        return view('pengembalians.index', compact('pengembalians'));
-    }
+{
+    $pengembalians = Pengembalian::with(['peminjaman', 'user'])->latest()->get(); // atau sesuaikan dengan relasi
+    return view('pengembalian.index', compact('pengembalians'));
+}
 
     // Menyetujui pengembalian (ubah catatan jadi completed)
     public function approve($id)
     {
         $pengembalian = Pengembalian::findOrFail($id);
-        $pengembalian->catatan = 'completed';
-        $pengembalian->denda = 0; // no denda kalau approved langsung
-        $pengembalian->save();
 
-        return redirect()->route('pengembalians.index')->with('success', 'Pengembalian disetujui.');
+        if ($pengembalian->status === 'complete') {
+            return redirect()->route('admin.pengembalian.index')->with('error', 'Pengembalian ini sudah diselesaikan.');
+        }
+
+        // Hitung keterlambatan dan denda
+        $pengembalian->hitungKeterlambatan();
+        
+        $pengembalian->update(['status' => 'complete']);
+
+        $peminjaman = $pengembalian->peminjaman;
+        $peminjaman->update(['status' => 'returned']);
+
+        // Kembalikan stok barang
+        $barang = $peminjaman->barang;
+        if ($barang) {
+            $barang->increment('jumlah', $pengembalian->jumlah_dikembalikan);
+        }
+
+        return redirect()->route('admin.pengembalian.index')->with('success', 'Pengembalian berhasil disetujui.');
     }
 
-    // Tandai pengembalian sebagai damage (terlambat, rusak, hilang), hitung denda sesuai kondisi
-    public function markDamage(Request $request, $id)
+
+    public function reject($id)
     {
-        $request->validate([
-            'kondisi_barang' => 'required|in:terlambat,rusak,hilang',
+        $pengembalian = Pengembalian::findOrFail($id);
+
+        $pengembalian->update(['status' => 'damage']);
+
+        $peminjaman = $pengembalian->peminjaman;
+        $peminjaman->update(['status' => 'rejected']);
+
+        $barang = $peminjaman->barang;
+        if ($barang) {
+            $barang->decrement('stok', $pengembalian->jumlah_dikembalikan);
+        }
+
+        return redirect()->route('admin.pengembalian.index')->with('success', 'Pengembalian barang rusak berhasil ditandai.');
+    }
+    // Tandai pengembalian sebagai damage (terlambat, rusak, hilang), hitung denda sesuai kondisi
+    public function markDamaged($id)
+    {
+        $pengembalian = Pengembalian::findOrFail($id);
+        return view('admin.pengembalian.markDamaged', compact('pengembalian'));
+    }
+
+    public function updateDamaged(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'denda' => 'required|numeric|min:0',
         ]);
 
         $pengembalian = Pengembalian::findOrFail($id);
-        $pengembalian->catatan = 'damage';
-        $pengembalian->kondisi_barang = $request->kondisi_barang;
 
-        // Logika denda sederhana, bisa disesuaikan:
-        switch ($request->kondisi_barang) {
-            case 'terlambat':
-                $pengembalian->denda = 50000; // misal denda terlambat 50 ribu
-                break;
-            case 'rusak':
-                $pengembalian->denda = 100000; // denda rusak 100 ribu
-                break;
-            case 'hilang':
-                $pengembalian->denda = 200000; // denda hilang 200 ribu
-                break;
-            default:
-                $pengembalian->denda = 0;
-                break;
+        $pengembalian->update([
+            'status' => 'damage',
+            'denda' => $validated['denda'],
+        ]);
+
+        $peminjaman = $pengembalian->peminjaman;
+        $peminjaman->update(['status' => 'rejected']);
+
+        $barang = $peminjaman->barang;
+        if ($barang) {
+            $barang->increment('jumlah', $pengembalian->jumlah_dikembalikan);
         }
 
-        $pengembalian->save();
-
-        return redirect()->route('pengembalians.index')->with('success', 'Status pengembalian diupdate dengan denda.');
+        return redirect()->route('admin.pengembalian.index')->with('success', 'Denda pengembalian rusak berhasil diperbarui.');
     }
+
 }

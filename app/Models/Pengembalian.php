@@ -15,7 +15,7 @@ class Pengembalian extends Model
         'tanggal_dikembalikan',
         'kondisi_barang',
         'denda',
-        'catatatan',
+        'status',
     ];
 
     public function user()
