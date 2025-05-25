@@ -19,7 +19,9 @@ class PengembalianApiController extends Controller
             'peminjaman_id' => 'required|exists:peminjamans,id',
             'jumlah' => 'required|integer|min:1',
             'tanggal_dikembalikan' => 'required|date',
-            'kondisi_barang' => 'required|in:baik,terlambat,rusak,hilang',
+            'kondisi_barang' => 'required|string|max:255',
+          'status' => 'required|in:pending,completed,damage,returned',
+
         ]);
 
         // Cari data peminjaman terkait beserta barangnya
@@ -40,20 +42,7 @@ class PengembalianApiController extends Controller
             ], 400);
         }
 
-        // Hitung denda keterlambatan
-        $denda = 0;
-        $tanggalPengembalian = Carbon::parse($validated['tanggal_dikembalikan']);
-        $tanggalSeharusnya = Carbon::parse($peminjaman->tanggal_pengembalian);
-        $selisihHari = $tanggalPengembalian->diffInDays($tanggalSeharusnya, false);
-
-        if ($selisihHari < 0) {
-            $denda += abs($selisihHari) * 5000; // denda Rp5000 per hari keterlambatan
-        }
-
-        // Denda tambahan untuk kondisi rusak atau hilang
-        if (in_array($validated['kondisi_barang'], ['rusak', 'hilang'])) {
-            $denda += 10000;
-        }
+     
 
         // Simpan data pengembalian
         $pengembalian = Pengembalian::create([
@@ -62,7 +51,7 @@ class PengembalianApiController extends Controller
             'jumlah' => $validated['jumlah'],
             'tanggal_dikembalikan' => $validated['tanggal_dikembalikan'],
             'kondisi_barang' => $validated['kondisi_barang'],
-            'denda' => $denda,
+            'denda' => $validated['denda'] ?? 0,
             'status' => 'pending',
         ]);
 

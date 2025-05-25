@@ -69,8 +69,9 @@ Route::delete('/barang/{id}', [BarangController::class, 'destroy'])->name('baran
     Route::get('pengembalian', [PengembalianController::class, 'index'])->name('pengembalian.index');
     Route::post('pengembalian/{id}/approve', [PengembalianController::class, 'approve'])->name('pengembalian.approve');
     Route::post('pengembalian/{id}/reject', [PengembalianController::class, 'reject'])->name('pengembalian.reject');
-    Route::get('pengembalian/{id}/mark-damaged', [PengembalianController::class, 'markDamaged'])->name('pengembalian.markDamaged');
-    Route::post('pengembalian/{id}/update-damaged', [PengembalianController::class, 'updateDamaged'])->name('pengembalian.updateDamaged');
+Route::get('pengembalian/{id}/denda', [PengembalianController::class, 'markDamaged'])->name('pengembalian.denda');
+Route::put('pengembalian/{id}/denda', [PengembalianController::class, 'updateDamaged'])->name('pengembalian.updateDamaged');
+
 });
 
 

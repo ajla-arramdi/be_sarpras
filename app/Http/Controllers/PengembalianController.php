@@ -7,85 +7,86 @@ use Illuminate\Http\Request;
 
 class PengembalianController extends Controller
 {
-    // Tampilkan semua pengembalian yang pending
     public function index()
+    {
+        $pengembalians = Pengembalian::with(['peminjaman', 'user'])->latest()->get();
+        return view('pengembalian.index', compact('pengembalians'));
+    }
+
+   public function approve($id)
 {
-    $pengembalians = Pengembalian::with(['peminjaman', 'user'])->latest()->get(); // atau sesuaikan dengan relasi
-    return view('pengembalian.index', compact('pengembalians'));
+    $pengembalian = Pengembalian::findOrFail($id);
+
+    if ($pengembalian->status !== 'pending') {
+        return redirect()->route('pengembalian.index')
+            ->with('error', 'Pengembalian ini sudah diproses.');
+    }
+
+    $dendaTerlambat = $pengembalian->denda_keterlambatan;
+    if ($dendaTerlambat > 0) {
+        $pengembalian->update(['denda' => $dendaTerlambat]);
+    }
+
+    $pengembalian->update(['status' => 'completed']);  // ganti dari 'complete'
+
+    $peminjaman = $pengembalian->peminjaman;
+    $peminjaman->update(['status' => 'returned']);  // ganti dari 'dikembalikan' atau 'rejected'
+
+    $barang = $peminjaman->barang;
+    if ($barang) {
+        $barang->increment('jumlah', $pengembalian->jumlah);
+    }
+
+    return redirect()->route('pengembalian.index')->with('success', 'Pengembalian berhasil disetujui.');
 }
 
-    // Menyetujui pengembalian (ubah catatan jadi completed)
-    public function approve($id)
-    {
-        $pengembalian = Pengembalian::findOrFail($id);
+public function reject($id)
+{
+    $pengembalian = Pengembalian::findOrFail($id);
 
-        if ($pengembalian->status === 'complete') {
-            return redirect()->route('admin.pengembalian.index')->with('error', 'Pengembalian ini sudah diselesaikan.');
-        }
+    $pengembalian->update(['status' => 'damage']);  // sudah cocok
 
-        // Hitung keterlambatan dan denda
-        $pengembalian->hitungKeterlambatan();
-        
-        $pengembalian->update(['status' => 'complete']);
+    $peminjaman = $pengembalian->peminjaman;
+    $peminjaman->update(['status' => 'returned']);  // ganti dari 'rejected'
 
-        $peminjaman = $pengembalian->peminjaman;
-        $peminjaman->update(['status' => 'returned']);
-
-        // Kembalikan stok barang
-        $barang = $peminjaman->barang;
-        if ($barang) {
-            $barang->increment('jumlah', $pengembalian->jumlah_dikembalikan);
-        }
-
-        return redirect()->route('admin.pengembalian.index')->with('success', 'Pengembalian berhasil disetujui.');
+    $barang = $peminjaman->barang;
+    if ($barang) {
+        $barang->decrement('stok', $pengembalian->jumlah); // pastikan kolom stok/ jumlah benar
     }
 
+    return redirect()->route('pengembalian.index')->with('success', 'Pengembalian barang rusak berhasil ditandai.');
+}
 
-    public function reject($id)
-    {
-        $pengembalian = Pengembalian::findOrFail($id);
-
-        $pengembalian->update(['status' => 'damage']);
-
-        $peminjaman = $pengembalian->peminjaman;
-        $peminjaman->update(['status' => 'rejected']);
-
-        $barang = $peminjaman->barang;
-        if ($barang) {
-            $barang->decrement('stok', $pengembalian->jumlah_dikembalikan);
-        }
-
-        return redirect()->route('admin.pengembalian.index')->with('success', 'Pengembalian barang rusak berhasil ditandai.');
-    }
-    // Tandai pengembalian sebagai damage (terlambat, rusak, hilang), hitung denda sesuai kondisi
     public function markDamaged($id)
     {
         $pengembalian = Pengembalian::findOrFail($id);
-        return view('admin.pengembalian.markDamaged', compact('pengembalian'));
+        return view('pengembalian.denda', compact('pengembalian'));
     }
 
-    public function updateDamaged(Request $request, $id)
-    {
-        $validated = $request->validate([
-            'denda' => 'required|numeric|min:0',
-        ]);
+   public function updateDamaged(Request $request, $id)
+{
+    $validated = $request->validate([
+        'denda' => 'required|numeric|min:0',
+    ]);
 
-        $pengembalian = Pengembalian::findOrFail($id);
+    $pengembalian = Pengembalian::findOrFail($id);
 
-        $pengembalian->update([
-            'status' => 'damage',
-            'denda' => $validated['denda'],
-        ]);
+    $dendaTerlambat = $pengembalian->denda_keterlambatan;
+    $totalDendaRusak = $validated['denda'];
 
-        $peminjaman = $pengembalian->peminjaman;
-        $peminjaman->update(['status' => 'rejected']);
+    $pengembalian->update([
+        'status' => 'damage', // sudah cocok
+        'denda' => $totalDendaRusak + $dendaTerlambat,
+    ]);
 
-        $barang = $peminjaman->barang;
-        if ($barang) {
-            $barang->increment('jumlah', $pengembalian->jumlah_dikembalikan);
-        }
+    $peminjaman = $pengembalian->peminjaman;
+    $peminjaman->update(['status' => 'dikembalikan']);  // ganti dari 'rejected'
 
-        return redirect()->route('admin.pengembalian.index')->with('success', 'Denda pengembalian rusak berhasil diperbarui.');
+    $barang = $peminjaman->barang;
+    if ($barang) {
+        $barang->increment('jumlah', $pengembalian->jumlah);
     }
 
+    return redirect()->route('pengembalian.index')->with('success', 'Denda pengembalian rusak berhasil diperbarui.');
+}
 }
