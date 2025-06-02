@@ -1,44 +1,51 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-  <meta charset="UTF-8" />
-  <title>Tambah Kategori</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-100 min-h-screen flex items-center justify-center px-4 py-10">
+@extends('layouts.admin')
 
-  <div class="w-full max-w-2xl bg-white rounded-xl shadow-md p-8">
-    <!-- Header -->
-    <div class="mb-6 text-center">
-      <h1 class="text-2xl font-semibold text-gray-800">Tambah Kategori</h1>
-      <p class="text-sm text-gray-500">Isi detail kategori baru.</p>
+@section('title', 'Tambah Kategori')
+@section('subtitle', 'Buat kategori baru untuk barang')
+
+@section('content')
+<div class="space-y-6">
+    <!-- Form Card -->
+    <div class="bg-white rounded-2xl shadow-lg p-8">
+        <form action="{{ route('kategori.store') }}" method="POST" class="space-y-6">
+            @csrf
+
+            <!-- Nama Kategori -->
+            <div class="space-y-2">
+                <label for="nama" class="block text-sm font-medium text-gray-700">
+                    Nama Kategori
+                </label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
+                        <i class="fas fa-box text-lg"></i>
+                    </span>
+                    <input type="text" 
+                           id="nama" 
+                           name="nama" 
+                           required
+                           class="pl-10 w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
+                           placeholder="Masukkan nama kategori" />
+                </div>
+                @error('nama')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex items-center justify-between pt-6">
+                <a href="{{ route('kategori.index') }}" 
+                   class="inline-flex items-center px-4 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:text-red-600 hover:bg-red-50 transition-colors duration-200">
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    Kembali
+                </a>
+
+                <button type="submit"
+                        class="inline-flex items-center px-6 py-2.5 rounded-lg bg-gradient-to-r from-red-600 to-red-700 text-white font-medium hover:from-red-700 hover:to-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all duration-200 shadow-lg hover:shadow-xl">
+                    <i class="fas fa-save mr-2"></i>
+                    Simpan Kategori
+                </button>
+            </div>
+        </form>
     </div>
-
-    <!-- Form -->
-    <form action="{{ route('kategori.store') }}" method="POST" class="space-y-5">
-      @csrf
-
-      <div>
-        <label for="nama" class="block text-gray-700 text-sm font-medium mb-1">Nama Kategori</label>
-        <input type="text" id="nama" name="nama" required
-          class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500" />
-      </div>
-
-      <div class="pt-4 flex justify-between items-center">
-        <a href="{{ route('kategori.index') }}" class="inline-flex items-center text-sm text-gray-600 hover:text-blue-600 hover:underline transition duration-200">
-          <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-          Kembali
-        </a>
-
-        <button type="submit"
-          class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-md text-sm font-medium transition">
-          Simpan
-        </button>
-      </div>
-    </form>
-  </div>
-
-</body>
-</html>
+</div>
+@endsection

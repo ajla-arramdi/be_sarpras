@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Barang;
 use App\Models\Kategori;
+use App\Models\Peminjaman;
 use Illuminate\Http\Request;
 
 class BarangController extends Controller
@@ -80,7 +81,20 @@ class BarangController extends Controller
 
     public function destroy($id)
     {
-        Barang::destroy($id);
-        return redirect()->route('barang.index')->with('success', 'Barang berhasil dihapus.');
+        $barang = Barang::findOrFail($id);
+        
+        // Check if the item is currently borrowed
+        $activePeminjaman = Peminjaman::where('barang_id', $id)
+            ->whereIn('status', ['menunggu', 'disetujui'])
+            ->exists();
+            
+        if ($activePeminjaman) {
+            return redirect()->route('barang.index')
+                ->with('error', 'Barang tidak dapat dihapus karena sedang dipinjam.');
+        }
+        
+        $barang->delete();
+        return redirect()->route('barang.index')
+            ->with('success', 'Barang berhasil dihapus.');
     }
 }

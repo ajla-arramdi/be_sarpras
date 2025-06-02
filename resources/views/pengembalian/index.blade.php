@@ -1,93 +1,140 @@
 @extends('layouts.admin')
 
 @section('title', 'Daftar Pengembalian')
+@section('subtitle', 'Kelola data pengembalian barang')
 
 @section('content')
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <h1 class="text-2xl font-bold text-blue-700 mb-6">📦 Daftar Pengembalian</h1>
-
-    @if (session('success'))
-        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4 shadow">
-            {{ session('success') }}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center space-x-3">
+        <div class="w-12 h-12 bg-gradient-to-br from-red-500 to-red-600 rounded-xl flex items-center justify-center shadow-lg">
+            <i class="fas fa-undo text-2xl text-white"></i>
         </div>
-    @elseif (session('error'))
-        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 shadow">
-            {{ session('error') }}
+        <div>
+            <h2 class="text-2xl font-bold text-gray-800">Daftar Pengembalian</h2>
+            <p class="text-sm text-gray-600">Total {{ $pengembalians->count() }} pengembalian</p>
         </div>
-    @endif
+    </div>
 
-    <div class="overflow-x-auto bg-white shadow rounded-lg">
-        <table class="min-w-full divide-y divide-blue-100">
-            <thead class="bg-blue-50">
-                <tr>
-                    <th class="px-4 py-3 text-left text-sm font-semibold text-blue-600 uppercase">No</th>
-                    <th class="px-4 py-3 text-left text-sm font-semibold text-blue-600 uppercase">Nama User</th>
-                    <th class="px-4 py-3 text-left text-sm font-semibold text-blue-600 uppercase">Tanggal Pinjam</th>
-                    <th class="px-4 py-3 text-left text-sm font-semibold text-blue-600 uppercase">Tanggal Kembali</th>
-                    <th class="px-4 py-3 text-center text-sm font-semibold text-blue-600 uppercase">Jumlah</th>
-                    <th class="px-4 py-3 text-center text-sm font-semibold text-blue-600 uppercase">Kondisi</th>
-                    <th class="px-4 py-3 text-right text-sm font-semibold text-blue-600 uppercase">Denda</th>
-                    <th class="px-4 py-3 text-center text-sm font-semibold text-blue-600 uppercase">Status</th>
-                    <th class="px-4 py-3 text-center text-sm font-semibold text-blue-600 uppercase">Aksi</th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-100">
-                @forelse ($pengembalians as $pengembalian)
-                    <tr class="hover:bg-blue-50 transition">
-                        <td class="px-4 py-3 text-gray-800 whitespace-nowrap">{{ $loop->iteration }}</td>
-                        <td class="px-4 py-3 text-gray-800 whitespace-nowrap">{{ $pengembalian->user->name ?? '-' }}</td>
-                        <td class="px-4 py-3 text-gray-800 whitespace-nowrap">
-                            {{ \Carbon\Carbon::parse($pengembalian->peminjaman->tanggal_pinjam)->format('d/m/Y') }}
-                        </td>
-                        <td class="px-4 py-3 text-gray-800 whitespace-nowrap">
-                            {{ \Carbon\Carbon::parse($pengembalian->tanggal_dikembalikan)->format('d/m/Y') }}
-                        </td>
-                        <td class="px-4 py-3 text-center text-gray-800 whitespace-nowrap">{{ $pengembalian->jumlah }}</td>
-                        <td class="px-4 py-3 text-center capitalize text-gray-800 whitespace-nowrap">{{ $pengembalian->kondisi_barang }}</td>
-                        <td class="px-4 py-3 text-right text-gray-800 whitespace-nowrap">
-                            Rp{{ number_format($pengembalian->total_denda, 0, ',', '.') }}
-                        </td>
-                        <td class="px-4 py-3 text-center whitespace-nowrap">
-                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold
-                                @if ($pengembalian->status === 'pending') bg-yellow-100 text-yellow-800
-                                @elseif ($pengembalian->status === 'complete') bg-green-100 text-green-800
-                                @elseif ($pengembalian->status === 'damage') bg-red-100 text-red-800
-                                @else bg-gray-100 text-gray-600
-                                @endif
-                            ">
-                                {{ ucfirst($pengembalian->status) }}
-                            </span>
-                        </td>
-                        <td class="px-4 py-3 text-center whitespace-nowrap">
-                            @if ($pengembalian->status === 'pending')
-                                <div class="flex flex-col gap-2 max-w-[120px] mx-auto">
-                                    <form action="{{ route('pengembalian.approve', $pengembalian->id) }}" method="POST" onsubmit="return confirm('Setujui pengembalian ini?')">
-                                        @csrf
-                                        <button type="submit"
-                                            class="w-full px-3 py-1 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded shadow">
-                                            ✅ Approve
-                                        </button>
-                                    </form>
-
-                                    <a href="{{ route('pengembalian.denda', $pengembalian->id) }}"
-                                       class="block w-full px-3 py-1 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded shadow text-center">
-                                        ❌ Tandai Rusak
-                                    </a>
+    <!-- Table Card -->
+    <div class="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead>
+                    <tr class="bg-gray-50">
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            No
+                        </th>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Peminjam
+                        </th>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Tanggal Pinjam
+                        </th>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Tanggal Kembali
+                        </th>
+                        <th scope="col" class="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Jumlah
+                        </th>
+                        <th scope="col" class="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Kondisi
+                        </th>
+                        <th scope="col" class="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Denda
+                        </th>
+                        <th scope="col" class="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Status
+                        </th>
+                        <th scope="col" class="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Aksi
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    @forelse ($pengembalians as $pengembalian)
+                        <tr class="hover:bg-gray-50 transition-colors duration-200">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                #{{ $loop->iteration }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="w-8 h-8 bg-gradient-to-br from-red-500 to-red-600 rounded-lg flex items-center justify-center text-white">
+                                        <i class="fas fa-user text-sm"></i>
+                                    </div>
+                                    <div class="ml-3">
+                                        <div class="text-sm font-medium text-gray-900">{{ $pengembalian->user->name ?? '-' }}</div>
+                                    </div>
                                 </div>
-                            @else
-                                <span class="text-gray-500 italic text-xs">Tidak ada aksi</span>
-                            @endif
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="9" class="px-4 py-4 text-center text-gray-500">
-                            Belum ada data pengembalian.
-                        </td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ \Carbon\Carbon::parse($pengembalian->peminjaman->tanggal_pinjam)->format('d/m/Y') }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ \Carbon\Carbon::parse($pengembalian->tanggal_dikembalikan)->format('d/m/Y') }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-center">
+                                <span class="px-3 py-1 text-sm rounded-full bg-gradient-to-r from-red-100 to-red-50 text-red-800 border border-red-200">
+                                    {{ $pengembalian->jumlah }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-center">
+                                <span class="px-3 py-1 text-sm rounded-full bg-gray-100 text-gray-800 capitalize">
+                                    {{ $pengembalian->kondisi_barang }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-900">
+                                Rp{{ number_format($pengembalian->total_denda, 0, ',', '.') }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-center">
+                                <span class="px-3 py-1 text-sm rounded-full
+                                    @if ($pengembalian->status === 'pending') bg-gradient-to-r from-yellow-100 to-yellow-50 text-yellow-800 border border-yellow-200
+                                    @elseif ($pengembalian->status === 'complete') bg-gradient-to-r from-green-100 to-green-50 text-green-800 border border-green-200
+                                    @elseif ($pengembalian->status === 'damage') bg-gradient-to-r from-red-100 to-red-50 text-red-800 border border-red-200
+                                    @else bg-gradient-to-r from-gray-100 to-gray-50 text-gray-800 border border-gray-200
+                                    @endif">
+                                    {{ ucfirst($pengembalian->status) }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-center">
+                                @if ($pengembalian->status === 'pending')
+                                    <div class="flex flex-col gap-2 max-w-[120px] mx-auto">
+                                        <form action="{{ route('pengembalian.approve', $pengembalian->id) }}" method="POST" onsubmit="return confirm('Setujui pengembalian ini?')">
+                                            @csrf
+                                            <button type="submit"
+                                                class="w-full inline-flex items-center justify-center px-3 py-1.5 text-sm font-medium text-white bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-lg shadow-sm transition-colors duration-200">
+                                                <i class="fas fa-check mr-1.5"></i>
+                                                Approve
+                                            </button>
+                                        </form>
+
+                                        <a href="{{ route('pengembalian.denda', $pengembalian->id) }}"
+                                           class="w-full inline-flex items-center justify-center px-3 py-1.5 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 rounded-lg shadow-sm transition-colors duration-200">
+                                            <i class="fas fa-exclamation-triangle mr-1.5"></i>
+                                            Tandai Rusak
+                                        </a>
+                                    </div>
+                                @else
+                                    <span class="text-gray-500 italic text-sm">Tidak ada aksi</span>
+                                @endif
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="9" class="px-6 py-8 text-center">
+                                <div class="flex flex-col items-center justify-center text-gray-500">
+                                    <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                                        <i class="fas fa-undo text-2xl text-gray-400"></i>
+                                    </div>
+                                    <p class="text-lg font-medium">Belum ada data pengembalian</p>
+                                    <p class="text-sm">Silakan tunggu pengembalian baru</p>
+                                </div>
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 @endsection

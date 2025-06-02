@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Kategori;
+use App\Models\Peminjaman;
 use Illuminate\Http\Request;
 
 class KategoriController extends Controller
@@ -50,8 +51,21 @@ class KategoriController extends Controller
 
     public function destroy($id)
     {
-        Kategori::destroy($id);
-        return redirect()->route('kategori.index')->with('success', 'Data kategori berhasil dihapus.');
+        $kategori = Kategori::findOrFail($id);
+        
+        // Check if there are any active peminjaman for items in this category
+        $hasActivePeminjaman = Peminjaman::whereHas('barang', function($query) use ($kategori) {
+            $query->where('kategori_id', $kategori->id);
+        })->whereIn('status', ['menunggu', 'disetujui'])->exists();
+
+        if ($hasActivePeminjaman) {
+            return redirect()->route('kategori.index')
+                ->with('error', 'Kategori tidak dapat dihapus karena masih ada barang yang sedang dipinjam.');
+        }
+
+        $kategori->delete();
+        return redirect()->route('kategori.index')
+            ->with('success', 'Data kategori berhasil dihapus.');
     }
 
    
