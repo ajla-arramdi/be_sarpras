@@ -72,6 +72,17 @@ class UserController extends Controller
     public function destroy($id)
     {
         $user = User::findOrFail($id);
+        
+        // Check if user has any active borrowings
+        $activeBorrowings = $user->peminjaman   ()
+            ->whereIn('status', ['menunggu', 'disetujui'])
+            ->exists();
+            
+        if ($activeBorrowings) {
+            return redirect()->route('user.index')
+                ->with('error', 'Pengguna tidak dapat dihapus karena masih memiliki peminjaman aktif.');
+        }
+        
         $user->delete();
 
         return redirect()->route('user.index')->with('berhasil', 'Pengguna berhasil dihapus.');

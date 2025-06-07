@@ -40,6 +40,4 @@ Route::get('/barangs', [BarangApiController::class, 'index']);
 Route::post('/pengembalian', [PengembalianApiController::class, 'store']);
 Route::get('/pengembalian/user', [PengembalianApiController::class, 'index']);
 
-Route::get('/coba', function () {
-    return response()->json(['pesan' => 'API jalan']);
-});
+
